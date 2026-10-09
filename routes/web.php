@@ -27,6 +27,14 @@ Route::middleware(['auth'])->group(function () {
             return view('products.index');
         })->name('products.index');
 
+        Route::get('/products/create', function () {
+            return view('products.form');
+        })->name('products.create');
+
+        Route::get('/products/{productId}/edit', function (string $productId) {
+            return view('products.form', compact('productId'));
+        })->name('products.edit');
+
         Route::get('/inventory', function () {
             return view('inventory.index');
         })->name('inventory.index');
