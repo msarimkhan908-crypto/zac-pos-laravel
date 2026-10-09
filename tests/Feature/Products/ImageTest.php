@@ -26,24 +26,20 @@ class ImageTest extends TestCase
         Storage::fake('public');
     }
 
+    // ── Upload endpoint ───────────────────────────────────────────────────────
+
     public function test_valid_jpeg_upload_stores_main_and_thumb(): void
     {
         $file = UploadedFile::fake()->image('product.jpg', 900, 900);
 
-        Livewire::actingAs($this->admin())
-            ->test(ProductForm::class)
-            ->set('name', 'Burger')
-            ->set('price', '8.99')
-            ->set('newImage', $file)
-            ->call('save')
-            ->assertHasNoErrors();
+        $response = $this->actingAs($this->admin())
+            ->postJson(route('products.upload-image'), ['image' => $file]);
 
-        $product = Product::where('name', 'Burger')->first();
-        $this->assertNotNull($product->image, 'Product image path should be set after upload');
+        $response->assertOk()->assertJsonStructure(['path', 'url', 'thumbUrl']);
 
-        Storage::disk('public')->assertExists($product->image);
-
-        $thumb = str_replace('products/', 'products/thumbs/', $product->image);
+        $path = $response->json('path');
+        Storage::disk('public')->assertExists($path);
+        $thumb = str_replace('products/', 'products/thumbs/', $path);
         Storage::disk('public')->assertExists($thumb);
     }
 
@@ -51,42 +47,65 @@ class ImageTest extends TestCase
     {
         $file = UploadedFile::fake()->image('product.png', 400, 400);
 
-        Livewire::actingAs($this->admin())
-            ->test(ProductForm::class)
-            ->set('name', 'Fries')
-            ->set('price', '3.49')
-            ->set('newImage', $file)
-            ->call('save')
-            ->assertHasNoErrors();
-
-        $this->assertDatabaseHas('products', ['name' => 'Fries']);
+        $this->actingAs($this->admin())
+            ->postJson(route('products.upload-image'), ['image' => $file])
+            ->assertOk()
+            ->assertJsonStructure(['path']);
     }
 
-    public function test_gif_is_rejected_by_mime_rule(): void
+    public function test_non_image_file_is_rejected(): void
     {
-        // GIF is not in the allowed mimes (jpg,jpeg,png,webp) but is previewable by Livewire
-        $file = UploadedFile::fake()->image('product.gif', 100, 100);
+        $file = UploadedFile::fake()->create('document.pdf', 100, 'application/pdf');
 
-        Livewire::actingAs($this->admin())
-            ->test(ProductForm::class)
-            ->set('name', 'Burger')
-            ->set('price', '8.99')
-            ->set('newImage', $file)
-            ->call('save')
-            ->assertHasErrors(['newImage']);
+        $this->actingAs($this->admin())
+            ->postJson(route('products.upload-image'), ['image' => $file])
+            ->assertUnprocessable();
     }
 
     public function test_image_over_2mb_is_rejected(): void
     {
         $file = UploadedFile::fake()->image('big.jpg')->size(2049);
 
+        $this->actingAs($this->admin())
+            ->postJson(route('products.upload-image'), ['image' => $file])
+            ->assertUnprocessable();
+    }
+
+    public function test_guest_cannot_upload_image(): void
+    {
+        $file = UploadedFile::fake()->image('product.jpg');
+
+        $this->postJson(route('products.upload-image'), ['image' => $file])
+            ->assertUnauthorized();
+    }
+
+    public function test_cashier_cannot_upload_image(): void
+    {
+        $file = UploadedFile::fake()->image('product.jpg');
+
+        $this->actingAs(User::factory()->create(['role' => 'cashier']))
+            ->postJson(route('products.upload-image'), ['image' => $file])
+            ->assertForbidden();
+    }
+
+    // ── ProductForm with image path ───────────────────────────────────────────
+
+    public function test_pending_image_path_is_saved_with_product(): void
+    {
+        Storage::disk('public')->put('products/test-image.jpg', 'fake');
+
         Livewire::actingAs($this->admin())
             ->test(ProductForm::class)
             ->set('name', 'Burger')
             ->set('price', '8.99')
-            ->set('newImage', $file)
+            ->set('pendingImagePath', 'products/test-image.jpg')
             ->call('save')
-            ->assertHasErrors(['newImage']);
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('products', [
+            'name'  => 'Burger',
+            'image' => 'products/test-image.jpg',
+        ]);
     }
 
     public function test_remove_image_deletes_files(): void
@@ -107,22 +126,21 @@ class ImageTest extends TestCase
         $this->assertDatabaseHas('products', ['id' => $product->id, 'image' => null]);
     }
 
-    public function test_uploading_new_image_replaces_old(): void
+    public function test_replacing_image_deletes_old_files(): void
     {
         Storage::disk('public')->put('products/old-image.jpg', 'fake');
         Storage::disk('public')->put('products/thumbs/old-image.jpg', 'fake');
+        Storage::disk('public')->put('products/new-image.jpg', 'fake');
 
         $product = Product::factory()->create(['image' => 'products/old-image.jpg']);
-        $newFile = UploadedFile::fake()->image('new.jpg', 400, 400);
 
         Livewire::actingAs($this->admin())
             ->test(ProductForm::class, ['productId' => $product->id])
-            ->set('newImage', $newFile)
+            ->set('pendingImagePath', 'products/new-image.jpg')
             ->call('save')
             ->assertHasNoErrors();
 
-        $updated = $product->fresh();
-        $this->assertNotNull($updated->image);
-        $this->assertNotEquals('products/old-image.jpg', $updated->image);
+        Storage::disk('public')->assertMissing('products/old-image.jpg');
+        $this->assertDatabaseHas('products', ['id' => $product->id, 'image' => 'products/new-image.jpg']);
     }
 }

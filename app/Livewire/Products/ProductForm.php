@@ -8,13 +8,10 @@ use App\Models\Product;
 use App\Services\ImageService;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
-use Livewire\Attributes\Validate;
 use Livewire\Component;
-use Livewire\WithFileUploads;
 
 class ProductForm extends Component
 {
-    use WithFileUploads;
 
     public ?string $productId = null;
 
@@ -38,10 +35,9 @@ class ProductForm extends Component
     public array $selectedAddonGroupIds = [];
 
     // ── Image ─────────────────────────────────────────────────────────────────
-    #[Validate('nullable|image|mimes:jpg,jpeg,png,webp|max:2048')]
-    public $newImage = null;
-    public ?string $existingImage = null;
-    public bool    $removeImage   = false;
+    public ?string $pendingImagePath = null;
+    public ?string $existingImage    = null;
+    public bool    $removeImage      = false;
 
     // ── Toast ─────────────────────────────────────────────────────────────────
     public bool   $showToast    = false;
@@ -114,8 +110,8 @@ class ProductForm extends Component
 
     public function clearImage(): void
     {
-        $this->removeImage = true;
-        $this->newImage    = null;
+        $this->removeImage       = true;
+        $this->pendingImagePath  = null;
     }
 
     public function save(): void
@@ -134,19 +130,20 @@ class ProductForm extends Component
             'prepNote'    => 'nullable|string|max:500',
             'variants.*.name'  => 'required|string|max:100',
             'variants.*.price' => 'required|numeric|min:0',
-            'newImage'    => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
         ]);
 
         $imagePath = $this->existingImage;
 
-        // Handle image changes
         if ($this->removeImage && $this->existingImage) {
             ImageService::delete($this->existingImage);
             $imagePath = null;
         }
 
-        if ($this->newImage) {
-            $imagePath = ImageService::store($this->newImage, $this->removeImage ? null : $this->existingImage);
+        if ($this->pendingImagePath) {
+            if ($this->existingImage && $this->existingImage !== $this->pendingImagePath) {
+                ImageService::delete($this->existingImage);
+            }
+            $imagePath = $this->pendingImagePath;
         }
 
         $data = [
@@ -204,10 +201,10 @@ class ProductForm extends Component
 
         // Update component state
         $product->refresh()->load(['variants', 'addonGroups']);
-        $this->existingImage = $product->image;
-        $this->removeImage   = false;
-        $this->newImage      = null;
-        $this->variants      = $product->variants->map(fn ($v) => [
+        $this->existingImage    = $product->image;
+        $this->removeImage      = false;
+        $this->pendingImagePath = null;
+        $this->variants         = $product->variants->map(fn ($v) => [
             'id'         => $v->id,
             'name'       => $v->name,
             'price'      => number_format((float) $v->price, 2, '.', ''),

@@ -250,7 +250,37 @@
     </div>
 
     {{-- ── TAB: Image ──────────────────────────────────────────────────────── --}}
-    <div x-show="tab === 'image'" class="space-y-4">
+    <div x-show="tab === 'image'" class="space-y-4"
+         x-data="{
+             preview: null,
+             uploading: false,
+             uploadError: '',
+             uploadImage(event) {
+                 const file = event.target.files[0];
+                 if (! file) return;
+                 this.uploadError = '';
+                 this.uploading = true;
+                 const form = new FormData();
+                 form.append('image', file);
+                 form.append('_token', document.querySelector('meta[name=csrf-token]').content);
+                 fetch('{{ route('products.upload-image') }}', { method: 'POST', body: form })
+                     .then(r => r.json())
+                     .then(data => {
+                         if (data.path) {
+                             this.preview = data.url;
+                             $wire.set('pendingImagePath', data.path);
+                             $wire.set('removeImage', false);
+                         } else {
+                             this.uploadError = data.message ?? 'Upload failed.';
+                         }
+                         this.uploading = false;
+                     })
+                     .catch(() => {
+                         this.uploadError = 'Upload failed. Check file type and size.';
+                         this.uploading = false;
+                     });
+             }
+         }">
         <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
             <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Product Image</h3>
             <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">JPG, PNG or WEBP · max 2 MB · auto-resized to 800×800 with a 200×200 thumbnail</p>
@@ -258,12 +288,12 @@
             {{-- Current / preview --}}
             @if($existingImage && ! $removeImage)
             <div class="mb-4 flex items-start gap-4">
-                <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($existingImage) }}"
+                <img :src="preview ?? '{{ \Illuminate\Support\Facades\Storage::disk('public')->url($existingImage) }}'"
                      alt="Current image"
                      class="w-32 h-32 object-cover rounded-xl border border-gray-200 dark:border-gray-700">
                 <div>
                     <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Current image</p>
-                    <button type="button" wire:click="clearImage"
+                    <button type="button" wire:click="clearImage" @click="preview = null"
                             class="text-xs px-3 py-1.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-100 transition-colors font-medium">
                         Remove image
                     </button>
@@ -275,29 +305,32 @@
             </div>
             @endif
 
-            {{-- Upload input --}}
-            <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-6 text-center hover:border-primary-400 dark:hover:border-primary-600 transition-colors">
-                <input wire:model="newImage" type="file" accept=".jpg,.jpeg,.png,.webp"
-                       class="hidden" id="img-upload">
+            {{-- Upload-in-progress preview --}}
+            <template x-if="preview && ! {{ $existingImage && ! $removeImage ? 'true' : 'false' }}">
+                <div class="mb-4 flex items-center gap-3">
+                    <img :src="preview" alt="Preview" class="w-24 h-24 object-cover rounded-xl border border-gray-200 dark:border-gray-700">
+                    <button type="button" @click="preview = null; $wire.set('pendingImagePath', null)"
+                            class="text-xs px-3 py-1.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-100 transition-colors font-medium">
+                        Remove
+                    </button>
+                </div>
+            </template>
+
+            {{-- Drop zone --}}
+            <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-6 text-center hover:border-primary-400 dark:hover:border-primary-600 transition-colors"
+                 :class="uploading && 'opacity-50 pointer-events-none'">
+                <input type="file" accept=".jpg,.jpeg,.png,.webp"
+                       class="hidden" id="img-upload"
+                       @change="uploadImage($event)">
                 <label for="img-upload" class="cursor-pointer">
                     <svg class="w-8 h-8 mx-auto text-gray-400 mb-2" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                     </svg>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Click to upload or drag and drop</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400" x-text="uploading ? 'Uploading…' : 'Click to upload or drag and drop'"></p>
                 </label>
             </div>
 
-            @if($newImage)
-            <div class="mt-3 flex items-center gap-3">
-                <img src="{{ $newImage->temporaryUrl() }}" alt="Preview" class="w-16 h-16 object-cover rounded-lg border border-gray-200 dark:border-gray-700">
-                <div>
-                    <p class="text-xs font-medium text-gray-700 dark:text-gray-300">{{ $newImage->getClientOriginalName() }}</p>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ number_format($newImage->getSize() / 1024, 1) }} KB</p>
-                </div>
-            </div>
-            @endif
-
-            @error('newImage') <p class="mt-2 text-xs text-red-600">{{ $message }}</p> @enderror
+            <p x-show="uploadError" x-text="uploadError" class="mt-2 text-xs text-red-600"></p>
         </div>
     </div>
 

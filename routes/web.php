@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ProductImageController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -34,6 +35,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/products/{productId}/edit', function (string $productId) {
             return view('products.form', compact('productId'));
         })->name('products.edit');
+
+        Route::post('/products/upload-image', [ProductImageController::class, 'store'])->name('products.upload-image');
 
         Route::get('/inventory', function () {
             return view('inventory.index');
