@@ -1,3 +1,162 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ── Default theme variables (Burger Orange) ──────────────────────────────
+   Overridden at runtime by the <style> block in the layout head.
+   Values are space-separated R G B (no commas) for use with rgb()/rgba().  */
+:root {
+    /* Primary scale */
+    --color-primary-50:  255 248 243;
+    --color-primary-100: 254 241 232;
+    --color-primary-200: 254 220 197;
+    --color-primary-300: 253 199 162;
+    --color-primary-400: 251 164 104;
+    --color-primary-500: 249 115 22;
+    --color-primary-600: 201 94 20;
+    --color-primary-700: 153 73 17;
+    --color-primary-800: 106 52 15;
+    --color-primary-900: 70 36 13;
+    --color-primary-contrast: 17 24 39;
+
+    /* Accent scale (amber-400) */
+    --color-accent-50:  255 253 243;
+    --color-accent-100: 254 252 232;
+    --color-accent-200: 254 246 197;
+    --color-accent-300: 253 237 162;
+    --color-accent-400: 251 218 104;
+    --color-accent-500: 251 191 36;
+    --color-accent-600: 203 155 29;
+    --color-accent-700: 155 118 22;
+    --color-accent-800: 107 81 15;
+    --color-accent-900: 70 53 9;
+    --color-accent-contrast: 17 24 39;
+
+    /* Layout */
+    --radius-base: 0.5rem;
+    --font-base: 16px;
+    --spacing-btn-y: 0.5rem;
+    --spacing-btn-x: 1rem;
+    --spacing-row: 0.75rem;
+
+    /* Sidebar (light style default) */
+    --sidebar-bg:          255 255 255;
+    --sidebar-text:        75 85 99;
+    --sidebar-border:      229 231 235;
+    --sidebar-active-bg:   255 248 243;
+    --sidebar-active-text: 153 73 17;
+    --sidebar-icon:        156 163 175;
+    --sidebar-icon-active: 249 115 22;
+}
+
+/* Dark mode default sidebar overrides (when sidebar style = light) */
+.dark {
+    --sidebar-bg:          31 41 55;
+    --sidebar-text:        209 213 219;
+    --sidebar-border:      55 65 81;
+    --sidebar-active-bg:   55 65 81;
+    --sidebar-active-text: 255 255 255;
+    --sidebar-icon:        107 114 128;
+}
+
+/* ── Sidebar ───────────────────────────────────────────────────────────── */
+#sidebar {
+    background-color: rgb(var(--sidebar-bg));
+    border-right-color: rgb(var(--sidebar-border));
+    color: rgb(var(--sidebar-text));
+}
+
+.sidebar-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius-base);
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: rgb(var(--sidebar-text));
+    transition: background-color 150ms, color 150ms;
+    text-decoration: none;
+}
+
+.sidebar-nav-link:hover {
+    background-color: rgb(var(--sidebar-active-bg) / 0.7);
+    color: rgb(var(--sidebar-active-text));
+}
+
+.sidebar-nav-link.active {
+    background-color: rgb(var(--sidebar-active-bg));
+    color: rgb(var(--sidebar-active-text));
+}
+
+.sidebar-nav-link .nav-icon {
+    color: rgb(var(--sidebar-icon));
+    flex-shrink: 0;
+}
+
+.sidebar-nav-link.active .nav-icon,
+.sidebar-nav-link:hover .nav-icon {
+    color: rgb(var(--sidebar-icon-active));
+}
+
+/* ── Theme-aware utility classes ───────────────────────────────────────── */
+.btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-btn-y) var(--spacing-btn-x);
+    background-color: rgb(var(--color-primary-500));
+    color: rgb(var(--color-primary-contrast));
+    border-radius: var(--radius-base);
+    font-size: 0.875rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: background-color 150ms;
+    text-decoration: none;
+}
+
+.btn-primary:hover {
+    background-color: rgb(var(--color-primary-600));
+}
+
+.btn-primary:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgb(var(--color-primary-500) / 0.35);
+}
+
+.btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-btn-y) var(--spacing-btn-x);
+    background-color: transparent;
+    color: rgb(var(--color-primary-600));
+    border: 1px solid rgb(var(--color-primary-300));
+    border-radius: var(--radius-base);
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 150ms, border-color 150ms;
+}
+
+.btn-secondary:hover {
+    background-color: rgb(var(--color-primary-50));
+    border-color: rgb(var(--color-primary-400));
+}
+
+.badge-primary {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.625rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    background-color: rgb(var(--color-primary-100));
+    color: rgb(var(--color-primary-700));
+}
+
+/* Font size & density applied via html data attributes */
+html[data-font="small"]  { font-size: 14px; }
+html[data-font="medium"] { font-size: 16px; }
+html[data-font="large"]  { font-size: 18px; }
